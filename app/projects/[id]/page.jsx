@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Upload, FolderPlus, RefreshCw,
   Code2, CloudUpload, CheckCircle, AlertCircle,
-  Loader2, Download, Trash2, Copy, Check, FolderDown
+  Loader2, Download, Trash2, Copy, Check, FolderDown, FolderUp
 } from 'lucide-react';
 import { api } from '../../../lib/api';
 import FileTree from '../../../components/FileTree';
@@ -271,6 +271,13 @@ export default function ProjectPage() {
                 <Upload size={14} />
                 <input type="file" multiple className="hidden" onChange={handleFileInput} />
               </label>
+              <label
+                className="p-1 text-[#858585] hover:text-white transition-colors rounded hover:bg-[#3c3c3c] cursor-pointer"
+                title="上傳資料夾"
+              >
+                <FolderUp size={14} />
+                <input type="file" webkitdirectory="" className="hidden" onChange={handleFileInput} />
+              </label>
             </div>
           </div>
 
@@ -311,11 +318,16 @@ export default function ProjectPage() {
           </div>
 
           {/* Upload button bottom */}
-          <div className="p-2 border-t border-[#3c3c3c]">
-            <label className="flex items-center justify-center gap-1.5 w-full py-1.5 text-xs text-[#858585] hover:text-white border border-[#3c3c3c] hover:border-[#555] rounded cursor-pointer transition-colors">
+          <div className="p-2 border-t border-[#3c3c3c] flex gap-1.5">
+            <label className="flex items-center justify-center gap-1.5 flex-1 py-1.5 text-xs text-[#858585] hover:text-white border border-[#3c3c3c] hover:border-[#555] rounded cursor-pointer transition-colors">
               <Upload size={12} />
-              選擇檔案上傳
+              上傳檔案
               <input type="file" multiple className="hidden" onChange={handleFileInput} />
+            </label>
+            <label className="flex items-center justify-center gap-1.5 flex-1 py-1.5 text-xs text-[#858585] hover:text-white border border-[#3c3c3c] hover:border-[#555] rounded cursor-pointer transition-colors">
+              <FolderUp size={12} />
+              上傳資料夾
+              <input type="file" webkitdirectory="" className="hidden" onChange={handleFileInput} />
             </label>
           </div>
         </div>
@@ -423,11 +435,18 @@ export default function ProjectPage() {
               <CloudUpload size={56} className="text-[#3c3c3c] mb-4" />
               <p className="text-[#555] text-base mb-1">拖拉檔案或資料夾到這裡上傳</p>
               <p className="text-[#424242] text-sm mb-6">支援單檔、多檔、整個資料夾（含子目錄）</p>
-              <label className="flex items-center gap-2 bg-[#0e639c] hover:bg-[#1177bb] text-white px-4 py-2.5 rounded text-sm cursor-pointer transition-colors">
-                <Upload size={15} />
-                選擇檔案
-                <input type="file" multiple className="hidden" onChange={handleFileInput} />
-              </label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 bg-[#0e639c] hover:bg-[#1177bb] text-white px-4 py-2.5 rounded text-sm cursor-pointer transition-colors">
+                  <Upload size={15} />
+                  選擇檔案
+                  <input type="file" multiple className="hidden" onChange={handleFileInput} />
+                </label>
+                <label className="flex items-center gap-2 bg-[#2d2d2d] hover:bg-[#3c3c3c] text-[#cccccc] px-4 py-2.5 rounded text-sm cursor-pointer transition-colors border border-[#3c3c3c] hover:border-[#555]">
+                  <FolderUp size={15} />
+                  選擇資料夾
+                  <input type="file" webkitdirectory="" className="hidden" onChange={handleFileInput} />
+                </label>
+              </div>
             </div>
           )}
         </div>
