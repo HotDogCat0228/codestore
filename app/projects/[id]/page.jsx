@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Upload, FolderPlus, RefreshCw,
   Code2, CloudUpload, CheckCircle, AlertCircle,
-  Loader2, Download, Trash2, Copy, Check, FolderDown, FolderUp
+  Loader2, Download, Trash2, Copy, Check, FolderDown, FolderUp, CheckSquare, Square
 } from 'lucide-react';
 import { api } from '../../../lib/api';
 import FileTree from '../../../components/FileTree';
@@ -53,6 +53,8 @@ export default function ProjectPage() {
   const [newFolder, setNewFolder] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [multiSelected, setMultiSelected] = useState(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
 
   const dropRef = useRef(null);
   const dragCounter = useRef(0);
@@ -106,11 +108,15 @@ export default function ProjectPage() {
     setDragOver(false);
     const items = e.dataTransfer.items;
     if (!items) return;
+    // Must collect all entries synchronously before any await,
+    // because DataTransfer is invalidated after the event loop yields.
+    const entries = Array.from(items)
+      .filter(item => item.kind === 'file')
+      .map(item => item.webkitGetAsEntry())
+      .filter(Boolean);
     const fileItems = [];
-    for (const item of Array.from(items)) {
-      if (item.kind !== 'file') continue;
-      const entry = item.webkitGetAsEntry();
-      if (entry) fileItems.push(...await traverseEntry(entry));
+    for (const entry of entries) {
+      fileItems.push(...await traverseEntry(entry));
     }
     await uploadFileItems(fileItems);
   };
@@ -198,6 +204,31 @@ export default function ProjectPage() {
     }
   };
 
+  const handleToggleSelect = (path) => {
+    setMultiSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
+  const handleMultiDownload = async () => {
+    try {
+      const blob = await api.files.downloadZip(id, [...multiSelected]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project?.name || id}-selection.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setMultiSelected(new Set());
+      setSelectionMode(false);
+    } catch (err) {
+      showStatus('error', '下載失敗：' + err.message);
+    }
+  };
+
   const copyPath = () => {
     navigator.clipboard.writeText(selectedPath);
     setCopied(true);
@@ -258,6 +289,17 @@ export default function ProjectPage() {
             <span className="text-[#bbb] text-xs font-semibold uppercase tracking-wider">檔案總管</span>
             <div className="flex items-center gap-0.5">
               <button
+                onClick={() => {
+                  const next = !selectionMode;
+                  setSelectionMode(next);
+                  if (!next) setMultiSelected(new Set());
+                }}
+                className={`p-1 transition-colors rounded hover:bg-[#3c3c3c] ${selectionMode ? 'text-[#0e639c]' : 'text-[#858585] hover:text-white'}`}
+                title={selectionMode ? '退出多選模式' : '多選模式'}
+              >
+                {selectionMode ? <CheckSquare size={14} /> : <Square size={14} />}
+              </button>
+              <button
                 onClick={() => setShowNewFolder(v => !v)}
                 className="p-1 text-[#858585] hover:text-white transition-colors rounded hover:bg-[#3c3c3c]"
                 title="新增資料夾"
@@ -314,6 +356,11 @@ export default function ProjectPage() {
               onMove={handleMove}
               selectedPath={selectedPath}
               onSelect={setSelectedPath}
+              multiSelected={multiSelected}
+              onToggleSelect={handleToggleSelect}
+              onMultiDownload={handleMultiDownload}
+              selectionMode={selectionMode}
+              onClearSelection={() => { setMultiSelected(new Set()); setSelectionMode(false); }}
             />
           </div>
 
@@ -358,7 +405,7 @@ export default function ProjectPage() {
             <div className="absolute inset-0 border-2 border-dashed border-[#0e639c] pointer-events-none z-10 flex flex-col items-center justify-center gap-2">
               <CloudUpload size={48} className="text-[#0e639c]" />
               <p className="text-[#0e639c] text-lg font-medium">放開以上傳</p>
-              <p className="text-[#0e639c]/60 text-sm">支援資料夾拖拉</p>
+              <p className="text-[#0e639c]/60 text-sm">支援多層資料夾、ZIP 檔案</p>
             </div>
           )}
 
@@ -434,7 +481,7 @@ export default function ProjectPage() {
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
               <CloudUpload size={56} className="text-[#3c3c3c] mb-4" />
               <p className="text-[#555] text-base mb-1">拖拉檔案或資料夾到這裡上傳</p>
-              <p className="text-[#424242] text-sm mb-6">支援單檔、多檔、整個資料夾（含子目錄）</p>
+              <p className="text-[#424242] text-sm mb-6">支援單檔、多檔、多層資料夾、ZIP 檔案</p>
               <div className="flex gap-3">
                 <label className="flex items-center gap-2 bg-[#0e639c] hover:bg-[#1177bb] text-white px-4 py-2.5 rounded text-sm cursor-pointer transition-colors">
                   <Upload size={15} />

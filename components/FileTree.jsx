@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown,
   Folder, FolderOpen,
   FileText, FileCode, FileImage, File,
-  Download, Trash2, Eye
+  Download, Trash2, Eye, Check, PackageDown
 } from 'lucide-react';
 import { isPreviewable } from './FilePreview';
 
@@ -32,6 +32,7 @@ function TreeNode({
   node, depth, projectId,
   onDelete, onDownload, onPreview, onSelect,
   selectedPath,
+  multiSelected, onToggleSelect, selectionMode,
   draggingPath, dragOverPath,
   onDragStart, onDragEnd, onDragEnterDir, onDragLeaveDir, onDropDir,
 }) {
@@ -39,6 +40,7 @@ function TreeNode({
   const isSelected = selectedPath === node.path;
   const isDragOver = isDir && dragOverPath === node.path;
   const isBeingDragged = draggingPath === node.path;
+  const isMultiSelected = multiSelected.has(node.path);
 
   // Expand automatically when dragged over
   const [expanded, setExpanded] = useState(depth < 1);
@@ -95,21 +97,43 @@ function TreeNode({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => {
-          if (isDir) setExpanded(v => !v);
-          else onSelect(node.path);
+        onClick={e => {
+          if (selectionMode || e.ctrlKey || e.metaKey) {
+            onToggleSelect(node.path);
+          } else if (isDir) {
+            setExpanded(v => !v);
+          } else {
+            onSelect(node.path);
+          }
         }}
         className={[
           'flex items-center gap-1 py-0.5 pr-1 rounded cursor-pointer group select-none transition-colors',
           isBeingDragged ? 'opacity-40' : '',
           isDragOver
             ? 'bg-[#094771] outline outline-1 outline-[#0e639c]'
+            : isMultiSelected
+            ? 'bg-[#0e639c]/20 outline outline-1 outline-[#0e639c]/50'
             : isSelected
             ? 'bg-[#094771] hover:bg-[#094771]'
             : 'hover:bg-[#2a2d2e]',
         ].join(' ')}
         style={{ paddingLeft: `${depth * 12 + 6}px` }}
       >
+        {/* Checkbox */}
+        <button
+          onClick={e => { e.stopPropagation(); onToggleSelect(node.path); }}
+          className={`flex-shrink-0 rounded flex items-center justify-center w-3.5 h-3.5 border transition-all ${
+            isMultiSelected
+              ? 'bg-[#0e639c] border-[#0e639c] opacity-100'
+              : selectionMode
+              ? 'border-[#555] opacity-100'
+              : 'border-[#555] opacity-0 group-hover:opacity-60'
+          }`}
+          title="選取"
+        >
+          {isMultiSelected && <Check size={10} className="text-white" />}
+        </button>
+
         {isDir ? (
           <>
             <span className="text-[#858585] flex-shrink-0">
@@ -175,6 +199,9 @@ function TreeNode({
           onPreview={onPreview}
           onSelect={onSelect}
           selectedPath={selectedPath}
+          multiSelected={multiSelected}
+          onToggleSelect={onToggleSelect}
+          selectionMode={selectionMode}
           draggingPath={draggingPath}
           dragOverPath={dragOverPath}
           onDragStart={onDragStart}
@@ -190,6 +217,7 @@ function TreeNode({
 
 export default function FileTree({
   files, projectId, onDelete, onDownload, onPreview, onMove, selectedPath, onSelect,
+  multiSelected, onToggleSelect, onMultiDownload, onClearSelection, selectionMode,
 }) {
   const [draggingPath, setDraggingPath] = useState(null);
   const [dragOverPath, setDragOverPath] = useState(null); // null = root zone
@@ -237,6 +265,7 @@ export default function FileTree({
   const sharedProps = {
     projectId,
     onDelete, onDownload, onPreview, onSelect, selectedPath,
+    multiSelected, onToggleSelect, selectionMode,
     draggingPath, dragOverPath,
     onDragStart: handleDragStart,
     onDragEnd: handleDragEnd,
@@ -261,6 +290,27 @@ export default function FileTree({
           <TreeNode key={node.path} node={node} depth={0} {...sharedProps} />
         ))}
       </div>
+
+      {/* Multi-select action bar */}
+      {multiSelected.size > 0 && (
+        <div className="mx-2 mb-1 mt-1 px-2 py-1.5 bg-[#094771] rounded flex items-center gap-2">
+          <span className="text-xs text-[#9cdcfe] flex-1">已選 {multiSelected.size} 個</span>
+          <button
+            onClick={onMultiDownload}
+            className="flex items-center gap-1 text-xs bg-[#0e639c] hover:bg-[#1177bb] text-white px-2 py-1 rounded transition-colors"
+            title="打包下載 ZIP"
+          >
+            <PackageDown size={12} />
+            下載 ZIP
+          </button>
+          <button
+            onClick={onClearSelection}
+            className="text-xs text-[#9cdcfe]/70 hover:text-white transition-colors"
+          >
+            清除
+          </button>
+        </div>
+      )}
 
       {/* Root drop zone — shown only while dragging */}
       {draggingPath && (
