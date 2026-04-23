@@ -5,7 +5,7 @@ import {
   ChevronRight, ChevronDown,
   Folder, FolderOpen,
   FileText, FileCode, FileImage, File,
-  Download, Trash2, Eye, Check, PackageDown
+  Download, Trash2, Eye, Check, FolderArchive
 } from 'lucide-react';
 import { isPreviewable } from './FilePreview';
 
@@ -300,7 +300,7 @@ export default function FileTree({
             className="flex items-center gap-1 text-xs bg-[#0e639c] hover:bg-[#1177bb] text-white px-2 py-1 rounded transition-colors"
             title="打包下載 ZIP"
           >
-            <PackageDown size={12} />
+            <FolderArchive size={12} />
             下載 ZIP
           </button>
           <button
