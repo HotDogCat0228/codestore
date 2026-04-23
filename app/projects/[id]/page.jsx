@@ -38,6 +38,17 @@ async function traverseEntry(entry, prefix = '') {
   return files;
 }
 
+function flattenTree(nodes) {
+  const result = [];
+  for (const node of nodes) {
+    result.push(node.path);
+    if (node.type === 'directory' && node.children) {
+      result.push(...flattenTree(node.children));
+    }
+  }
+  return result;
+}
+
 export default function ProjectPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -58,6 +69,7 @@ export default function ProjectPage() {
 
   const dropRef = useRef(null);
   const dragCounter = useRef(0);
+  const anchorRef = useRef(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -205,10 +217,29 @@ export default function ProjectPage() {
   };
 
   const handleToggleSelect = (path) => {
+    anchorRef.current = path;
     setMultiSelected(prev => {
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
+      return next;
+    });
+  };
+
+  const handleShiftSelect = (path) => {
+    const flat = flattenTree(files);
+    const anchor = anchorRef.current;
+    if (!anchor || !flat.includes(anchor)) {
+      handleToggleSelect(path);
+      return;
+    }
+    const a = flat.indexOf(anchor);
+    const b = flat.indexOf(path);
+    const [start, end] = a < b ? [a, b] : [b, a];
+    const range = flat.slice(start, end + 1);
+    setMultiSelected(prev => {
+      const next = new Set(prev);
+      range.forEach(p => next.add(p));
       return next;
     });
   };
@@ -323,6 +354,29 @@ export default function ProjectPage() {
             </div>
           </div>
 
+          {selectionMode && (
+            <div className="px-2 py-1.5 border-b border-[#3c3c3c] flex items-center gap-1.5 bg-[#1e1e1e]/60">
+              <span className="text-xs text-[#858585] flex-1">
+                {multiSelected.size > 0 ? `已選 ${multiSelected.size} 個` : '點選項目以選取'}
+              </span>
+              {multiSelected.size > 0 && (
+                <button
+                  onClick={handleMultiDownload}
+                  className="flex items-center gap-1 text-xs bg-[#0e639c] hover:bg-[#1177bb] text-white px-2 py-1 rounded transition-colors"
+                >
+                  <Download size={11} />
+                  ZIP
+                </button>
+              )}
+              <button
+                onClick={() => { setMultiSelected(new Set()); setSelectionMode(false); }}
+                className="text-xs text-[#555] hover:text-[#858585] transition-colors"
+              >
+                清除
+              </button>
+            </div>
+          )}
+
           {showNewFolder && (
             <div className="px-2 py-1.5 border-b border-[#3c3c3c] flex gap-1">
               <input
@@ -358,6 +412,7 @@ export default function ProjectPage() {
               onSelect={setSelectedPath}
               multiSelected={multiSelected}
               onToggleSelect={handleToggleSelect}
+              onShiftSelect={handleShiftSelect}
               onMultiDownload={handleMultiDownload}
               selectionMode={selectionMode}
               onClearSelection={() => { setMultiSelected(new Set()); setSelectionMode(false); }}

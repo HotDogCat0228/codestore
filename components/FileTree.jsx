@@ -32,7 +32,7 @@ function TreeNode({
   node, depth, projectId,
   onDelete, onDownload, onPreview, onSelect,
   selectedPath,
-  multiSelected, onToggleSelect, selectionMode,
+  multiSelected, onToggleSelect, onShiftSelect, selectionMode,
   draggingPath, dragOverPath,
   onDragStart, onDragEnd, onDragEnterDir, onDragLeaveDir, onDropDir,
 }) {
@@ -99,7 +99,8 @@ function TreeNode({
         onDrop={handleDrop}
         onClick={e => {
           if (selectionMode || e.ctrlKey || e.metaKey) {
-            onToggleSelect(node.path);
+            if (e.shiftKey) onShiftSelect(node.path);
+            else onToggleSelect(node.path);
           } else if (isDir) {
             setExpanded(v => !v);
           } else {
@@ -201,6 +202,7 @@ function TreeNode({
           selectedPath={selectedPath}
           multiSelected={multiSelected}
           onToggleSelect={onToggleSelect}
+          onShiftSelect={onShiftSelect}
           selectionMode={selectionMode}
           draggingPath={draggingPath}
           dragOverPath={dragOverPath}
@@ -217,7 +219,7 @@ function TreeNode({
 
 export default function FileTree({
   files, projectId, onDelete, onDownload, onPreview, onMove, selectedPath, onSelect,
-  multiSelected, onToggleSelect, onMultiDownload, onClearSelection, selectionMode,
+  multiSelected, onToggleSelect, onShiftSelect, onMultiDownload, onClearSelection, selectionMode,
 }) {
   const [draggingPath, setDraggingPath] = useState(null);
   const [dragOverPath, setDragOverPath] = useState(null); // null = root zone
@@ -265,7 +267,7 @@ export default function FileTree({
   const sharedProps = {
     projectId,
     onDelete, onDownload, onPreview, onSelect, selectedPath,
-    multiSelected, onToggleSelect, selectionMode,
+    multiSelected, onToggleSelect, onShiftSelect, selectionMode,
     draggingPath, dragOverPath,
     onDragStart: handleDragStart,
     onDragEnd: handleDragEnd,
@@ -290,27 +292,6 @@ export default function FileTree({
           <TreeNode key={node.path} node={node} depth={0} {...sharedProps} />
         ))}
       </div>
-
-      {/* Multi-select action bar */}
-      {multiSelected.size > 0 && (
-        <div className="mx-2 mb-1 mt-1 px-2 py-1.5 bg-[#094771] rounded flex items-center gap-2">
-          <span className="text-xs text-[#9cdcfe] flex-1">已選 {multiSelected.size} 個</span>
-          <button
-            onClick={onMultiDownload}
-            className="flex items-center gap-1 text-xs bg-[#0e639c] hover:bg-[#1177bb] text-white px-2 py-1 rounded transition-colors"
-            title="打包下載 ZIP"
-          >
-            <FolderArchive size={12} />
-            下載 ZIP
-          </button>
-          <button
-            onClick={onClearSelection}
-            className="text-xs text-[#9cdcfe]/70 hover:text-white transition-colors"
-          >
-            清除
-          </button>
-        </div>
-      )}
 
       {/* Root drop zone — shown only while dragging */}
       {draggingPath && (
