@@ -105,7 +105,17 @@ export default function ProjectPage() {
         formData.append('paths', path);
       });
       const result = await api.files.upload(id, formData);
-      showStatus('success', `成功上傳 ${result.uploaded.length} 個檔案${result.errors.length ? `，${result.errors.length} 個失敗` : ''}`);
+      if (result.errors?.length) {
+        const names = result.errors.map(e => `${e.path || e.name}: ${e.error}`).join('\n');
+        const summary = result.uploaded.length
+          ? `上傳完成：${result.uploaded.length} 成功，${result.errors.length} 失敗`
+          : `全部 ${result.errors.length} 個檔案上傳失敗`;
+        showStatus('error', summary);
+        console.error('[upload errors]\n' + names);
+        alert(`部分檔案上傳失敗：\n\n${names}`);
+      } else {
+        showStatus('success', `成功上傳 ${result.uploaded.length} 個檔案`);
+      }
       await loadData();
     } catch (err) {
       showStatus('error', '上傳失敗：' + err.message);
