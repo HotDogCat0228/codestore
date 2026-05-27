@@ -1,24 +1,50 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Download, Trash2, Copy, Check, Loader2, AlertCircle, FileX } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Download, Trash2, Copy, Check, Loader2, AlertCircle, FileX, ExternalLink, Maximize2, Minimize2, Eye, FileCode } from 'lucide-react';
+import { marked } from 'marked';
 import { api } from '../lib/api';
 
 const TEXT_EXTENSIONS = new Set([
   'js','jsx','ts','tsx','mjs','cjs',
   'py','go','rs','java','cpp','c','h','cs','php','rb','swift','kt','scala','r',
+  'lua','dart','ex','exs','elm','hs','clj','erl','fs','fsx','groovy','jl','nim',
+  'pl','rkt','sql','zig',
   'sh','bash','zsh','ps1','bat','cmd',
-  'html','htm','css','scss','less','sass',
-  'json','yaml','yml','toml','xml','svg','graphql','gql',
-  'md','mdx','txt','log','csv','tsv','sql',
+  'html','htm','css','scss','less','sass','vue','svelte','astro',
+  'json','yaml','yml','toml','xml','graphql','gql',
+  'md','mdx','txt','log','csv','tsv',
   'env','ini','conf','cfg','editorconfig','gitignore','gitattributes',
   'dockerfile','makefile','lock','prisma','proto',
+]);
+
+const IMAGE_EXTENSIONS = new Set([
+  'png','jpg','jpeg','gif','svg','webp','ico','bmp','tiff','tif','heic','avif','apng',
+]);
+
+const MD_EXTENSIONS = new Set(['md', 'mdx']);
+const PDF_EXTENSIONS = new Set(['pdf']);
+
+const OFFICE_EXTENSIONS = new Set([
+  'doc','docx','xls','xlsx','ppt','pptx',
+  'odt','ods','odp','rtf','pages','numbers','key',
+]);
+
+const ARCHIVE_EXTENSIONS = new Set([
+  'zip','rar','7z','tar','gz','xz','bz2','tgz','iso','dmg',
 ]);
 
 export function isPreviewable(filename) {
   const ext = filename.split('.').pop()?.toLowerCase();
   const noExt = ['dockerfile', 'makefile', 'procfile', 'readme', 'license', 'changelog'];
-  return TEXT_EXTENSIONS.has(ext) || noExt.includes(filename.toLowerCase());
+  return (
+    TEXT_EXTENSIONS.has(ext) ||
+    IMAGE_EXTENSIONS.has(ext) ||
+    PDF_EXTENSIONS.has(ext) ||
+    MD_EXTENSIONS.has(ext) ||
+    OFFICE_EXTENSIONS.has(ext) ||
+    noExt.includes(filename.toLowerCase())
+  );
 }
 
 function getLanguageClass(filename) {
@@ -37,23 +63,71 @@ function getLanguageClass(filename) {
   return map[ext] || 'plaintext';
 }
 
+function getFileTypeCategory(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  if (IMAGE_EXTENSIONS.has(ext)) return 'image';
+  if (PDF_EXTENSIONS.has(ext)) return 'pdf';
+  if (MD_EXTENSIONS.has(ext)) return 'markdown';
+  if (OFFICE_EXTENSIONS.has(ext)) return 'office';
+  if (ARCHIVE_EXTENSIONS.has(ext)) return 'archive';
+  if (TEXT_EXTENSIONS.has(ext)) return 'text';
+  return 'text';
+}
+
+function HumanFileType(filename) {
+  const cat = getFileTypeCategory(filename);
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const map = {
+    text: '文字檔', image: '圖片', pdf: 'PDF 文件',
+    markdown: 'Markdown', office: `${(ext || '').toUpperCase()} 文件`, archive: '壓縮檔',
+  };
+  return map[cat] || '檔案';
+}
+
 export default function FilePreview({ projectId, filePath, onClose, onDownload, onDelete }) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [rawUrl, setRawUrl] = useState('');
+  const [imageSize, setImageSize] = useState(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [viewMode, setViewMode] = useState('rendered');
 
   const fileName = filePath?.split('/').pop() || '';
+  const category = fileName ? getFileTypeCategory(fileName) : 'text';
 
   useEffect(() => {
     if (!filePath) return;
     setLoading(true);
     setError('');
     setContent('');
-    api.files.content(projectId, filePath)
-      .then(data => setContent(data.content))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+    setRawUrl('');
+    setImageSize(null);
+
+    const cat = getFileTypeCategory(filePath);
+
+    if (cat === 'text' || cat === 'markdown') {
+      api.files.content(projectId, filePath)
+        .then(data => {
+          if (cat === 'markdown') {
+            setRawUrl(marked.parse(data.content, { breaks: true, gfm: true }));
+          }
+          setContent(data.content);
+        })
+        .catch(err => setError(err.message))
+        .finally(() => setLoading(false));
+    } else if (cat === 'image' || cat === 'pdf') {
+      const url = api.files.rawUrl(projectId, filePath);
+      setRawUrl(url);
+      setLoading(false);
+    } else if (cat === 'office') {
+      const url = api.files.rawUrl(projectId, filePath);
+      setRawUrl(url);
+      setLoading(false);
+    } else {
+      setLoading(false);
+    }
   }, [projectId, filePath]);
 
   const copyContent = () => {
@@ -63,22 +137,51 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
   };
 
   const lines = content.split('\n');
+  const isText = category === 'text';
+  const isMarkdown = category === 'markdown';
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1e1e]">
+    <div className={`flex flex-col bg-[#1e1e1e] ${fullscreen ? 'fixed inset-0 z-50' : 'h-full'}`}>
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-2 bg-[#2d2d2d] border-b border-[#3c3c3c] flex-shrink-0">
         <span className="text-white text-sm font-medium truncate flex-1">{fileName}</span>
         <span className="text-[#555] text-xs hidden sm:inline truncate max-w-[200px]">{filePath}</span>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          {!loading && !error && (
+          {!loading && !error && (isText || isMarkdown) && (
             <button
               onClick={copyContent}
               className="p-1.5 text-[#858585] hover:text-white rounded hover:bg-[#3c3c3c] transition-colors"
               title="複製內容"
             >
               {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+            </button>
+          )}
+          {isMarkdown && !loading && !error && (
+            <button
+              onClick={() => setViewMode(v => v === 'rendered' ? 'source' : 'rendered')}
+              className="p-1.5 text-[#858585] hover:text-white rounded hover:bg-[#3c3c3c] transition-colors"
+              title={viewMode === 'rendered' ? '顯示原始碼' : '顯示渲染'}
+            >
+              {viewMode === 'rendered' ? <FileCode size={14} /> : <Eye size={14} />}
+            </button>
+          )}
+          {(category === 'image' || category === 'pdf' || category === 'office') && (
+            <button
+              onClick={() => setFullscreen(f => !f)}
+              className="p-1.5 text-[#858585] hover:text-white rounded hover:bg-[#3c3c3c] transition-colors"
+              title={fullscreen ? '退出全螢幕' : '全螢幕'}
+            >
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          )}
+          {(category === 'pdf' || category === 'office') && (
+            <button
+              onClick={() => window.open(rawUrl, '_blank')}
+              className="p-1.5 text-[#858585] hover:text-white rounded hover:bg-[#3c3c3c] transition-colors"
+              title="在新分頁開啟"
+            >
+              <ExternalLink size={14} />
             </button>
           )}
           <button
@@ -116,31 +219,21 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
         )}
 
         {error && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-[#555]">
-            {error.includes('binary') || error.includes('Cannot read') ? (
-              <>
-                <FileX size={36} className="text-[#424242]" />
-                <p className="text-sm">無法預覽此檔案（二進位格式）</p>
-                <button
-                  onClick={() => onDownload(filePath, fileName)}
-                  className="flex items-center gap-1.5 text-xs bg-[#0e639c] hover:bg-[#1177bb] text-white px-3 py-1.5 rounded transition-colors"
-                >
-                  <Download size={12} />
-                  下載檔案
-                </button>
-              </>
-            ) : (
-              <>
-                <AlertCircle size={36} className="text-red-500/50" />
-                <p className="text-sm text-red-400/70">{error}</p>
-              </>
-            )}
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-[#555] p-8">
+            <AlertCircle size={36} className="text-red-500/50" />
+            <p className="text-sm text-red-400/70">{error}</p>
+            <button
+              onClick={() => onDownload(filePath, fileName)}
+              className="flex items-center gap-1.5 text-xs bg-[#0e639c] hover:bg-[#1177bb] text-white px-3 py-1.5 rounded transition-colors"
+            >
+              <Download size={12} />
+              下載檔案
+            </button>
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && isText && (
           <div className="flex text-sm font-mono">
-            {/* Line numbers */}
             <div
               className="select-none text-right pr-4 pl-4 py-4 text-[#424242] border-r border-[#2d2d2d] flex-shrink-0"
               style={{ minWidth: `${String(lines.length).length * 9 + 32}px` }}
@@ -149,21 +242,127 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
                 <div key={i} className="leading-6 text-xs">{i + 1}</div>
               ))}
             </div>
-
-            {/* Code */}
             <pre className="flex-1 py-4 px-4 text-[#d4d4d4] leading-6 text-xs overflow-x-auto whitespace-pre">
               {content}
             </pre>
           </div>
         )}
+
+        {!loading && !error && isMarkdown && viewMode === 'rendered' && (
+          <div
+            className="markdown-body py-6 px-8 max-w-4xl mx-auto text-[#d4d4d4] text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: rawUrl }}
+          />
+        )}
+
+        {!loading && !error && isMarkdown && viewMode === 'source' && (
+          <div className="flex text-sm font-mono">
+            <div
+              className="select-none text-right pr-4 pl-4 py-4 text-[#424242] border-r border-[#2d2d2d] flex-shrink-0"
+              style={{ minWidth: `${String(lines.length).length * 9 + 32}px` }}
+            >
+              {lines.map((_, i) => (
+                <div key={i} className="leading-6 text-xs">{i + 1}</div>
+              ))}
+            </div>
+            <pre className="flex-1 py-4 px-4 text-[#d4d4d4] leading-6 text-xs overflow-x-auto whitespace-pre">
+              {content}
+            </pre>
+          </div>
+        )}
+
+        {!loading && category === 'image' && rawUrl && (
+          <div className="flex items-center justify-center h-full bg-[#0d0d0d] p-4">
+            <img
+              src={rawUrl}
+              alt={fileName}
+              className="max-w-full max-h-full object-contain rounded shadow-lg"
+              style={{ imageRendering: 'auto' }}
+            />
+          </div>
+        )}
+
+        {!loading && category === 'pdf' && rawUrl && (
+          <iframe
+            src={rawUrl}
+            className="w-full h-full border-0"
+            title={fileName}
+          />
+        )}
+
+        {!loading && category === 'archive' && (
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-[#555] p-8">
+            <FileX size={48} className="text-[#3c3c3c]" />
+            <div className="text-center">
+              <p className="text-[#cccccc] text-sm mb-1">{fileName}</p>
+              <p className="text-[#555] text-xs">壓縮檔 — 無法直接預覽</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => onDownload(filePath, fileName)}
+                className="flex items-center gap-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white px-4 py-2 rounded text-sm transition-colors"
+              >
+                <Download size={15} />
+                下載檔案
+              </button>
+              <button
+                onClick={onClose}
+                className="flex items-center gap-1.5 bg-[#2d2d2d] hover:bg-[#3c3c3c] text-[#cccccc] px-4 py-2 rounded text-sm transition-colors border border-[#3c3c3c]"
+              >
+                關閉
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!loading && category === 'office' && rawUrl && (
+          <iframe
+            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(rawUrl)}`}
+            className="w-full h-full border-0"
+            title={fileName}
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          />
+        )}
+
+        {!loading && category === 'office' && !rawUrl && (
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-[#555] p-8">
+            <FileX size={48} className="text-[#3c3c3c]" />
+            <p className="text-[#cccccc] text-sm">{fileName}</p>
+            <button
+              onClick={() => onDownload(filePath, fileName)}
+              className="flex items-center gap-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white px-4 py-2 rounded text-sm transition-colors"
+            >
+              <Download size={15} />
+              下載檔案
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer */}
-      {!loading && !error && (
+      {!loading && !error && (isText || isMarkdown) && (
         <div className="flex items-center gap-4 px-4 py-1.5 bg-[#007acc] text-white text-xs flex-shrink-0">
-          <span>{getLanguageClass(fileName)}</span>
+          <span>{isMarkdown ? `Markdown (${viewMode === 'rendered' ? '渲染' : '原始碼'})` : getLanguageClass(fileName)}</span>
           <span>{lines.length} 行</span>
           <span>{content.length.toLocaleString()} 字元</span>
+        </div>
+      )}
+      {!loading && category === 'image' && rawUrl && (
+        <div className="flex items-center gap-4 px-4 py-1.5 bg-[#007acc] text-white text-xs flex-shrink-0">
+          <span>圖片預覽</span>
+          <span>{fileName}</span>
+        </div>
+      )}
+      {!loading && category === 'pdf' && rawUrl && (
+        <div className="flex items-center gap-4 px-4 py-1.5 bg-[#007acc] text-white text-xs flex-shrink-0">
+          <span>PDF 預覽</span>
+          <span>{fileName}</span>
+        </div>
+      )}
+      {!loading && category === 'office' && rawUrl && (
+        <div className="flex items-center gap-4 px-4 py-1.5 bg-[#007acc] text-white text-xs flex-shrink-0">
+          <span>Office Online 預覽</span>
+          <span>{fileName}</span>
         </div>
       )}
     </div>

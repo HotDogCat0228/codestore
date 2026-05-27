@@ -4,19 +4,49 @@ import { useState, useRef } from 'react';
 import {
   ChevronRight, ChevronDown,
   Folder, FolderOpen,
-  FileText, FileCode, FileImage, File,
+  FileText, FileCode, FileImage, FileArchive, FileAudio, FileVideo,
+  FileSpreadsheet, FileType, File,
   Download, Trash2, Eye, Check, FolderArchive
 } from 'lucide-react';
 import { isPreviewable } from './FilePreview';
 
 function getFileIcon(name) {
   const ext = name.split('.').pop()?.toLowerCase();
-  const codeExts = ['js', 'jsx', 'ts', 'tsx', 'py', 'go', 'rs', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'swift'];
-  const textExts = ['md', 'txt', 'json', 'yaml', 'yml', 'toml', 'xml', 'csv', 'env', 'sh', 'bat'];
-  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico'];
+  // Code
+  const codeExts = ['js','jsx','ts','tsx','mjs','cjs','py','go','rs','java','cpp','c','h','cs','php','rb','swift','kt','scala','r','lua','dart','ex','exs','elm','hs','clj','erl','fs','fsx','groovy','jl','ml','nim','pl','rkt','sql','zig'];
   if (codeExts.includes(ext)) return <FileCode size={14} className="flex-shrink-0 text-[#9cdcfe]" />;
+  // Text / config
+  const textExts = ['md','mdx','txt','log','json','yaml','yml','toml','xml','csv','tsv','env','ini','conf','cfg','editorconfig','gitignore','gitattributes','sh','bash','zsh','ps1','bat','cmd','dockerfile','makefile','lock','graphql','gql','proto','prisma'];
   if (textExts.includes(ext)) return <FileText size={14} className="flex-shrink-0 text-[#cccccc]" />;
+  // Markup / styles
+  const webExts = ['html','htm','css','scss','less','sass','vue','svelte','astro'];
+  if (webExts.includes(ext)) return <FileCode size={14} className="flex-shrink-0 text-[#e3797d]" />;
+  // Images
+  const imageExts = ['png','jpg','jpeg','gif','svg','webp','ico','bmp','tiff','tif','heic','avif','apng'];
   if (imageExts.includes(ext)) return <FileImage size={14} className="flex-shrink-0 text-[#dcb67a]" />;
+  // Audio
+  const audioExts = ['mp3','wav','ogg','flac','aac','m4a','wma','opus','aiff'];
+  if (audioExts.includes(ext)) return <FileAudio size={14} className="flex-shrink-0 text-[#c586c0]" />;
+  // Video
+  const videoExts = ['mp4','webm','mov','avi','mkv','wmv','flv','m4v','3gp'];
+  if (videoExts.includes(ext)) return <FileVideo size={14} className="flex-shrink-0 text-[#d16969]" />;
+  // Archives
+  const archiveExts = ['zip','rar','7z','tar','gz','xz','bz2','tgz','iso','dmg','pkg'];
+  if (archiveExts.includes(ext)) return <FileArchive size={14} className="flex-shrink-0 text-[#ce9178]" />;
+  // PDF
+  if (ext === 'pdf') return <FileType size={14} className="flex-shrink-0 text-[#f48771]" />;
+  // Office docs
+  const docExts = ['doc','docx','odt','rtf','tex'];
+  if (docExts.includes(ext)) return <FileText size={14} className="flex-shrink-0 text-[#519aba]" />;
+  // Spreadsheets
+  const sheetExts = ['xls','xlsx','ods','numbers'];
+  if (sheetExts.includes(ext)) return <FileSpreadsheet size={14} className="flex-shrink-0 text-[#6a9955]" />;
+  // Presentations
+  const presExts = ['ppt','pptx','odp','key'];
+  if (presExts.includes(ext)) return <FileType size={14} className="flex-shrink-0 text-[#b5cea8]" />;
+  // Fonts
+  const fontExts = ['ttf','otf','woff','woff2','eot'];
+  if (fontExts.includes(ext)) return <FileType size={14} className="flex-shrink-0 text-[#d7ba7d]" />;
   return <File size={14} className="flex-shrink-0 text-[#858585]" />;
 }
 
