@@ -90,12 +90,22 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [rawUrl, setRawUrl] = useState('');
-  const [imageSize, setImageSize] = useState(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState('rendered');
 
+  const blobUrlRef = useRef(null);
+
   const fileName = filePath?.split('/').pop() || '';
   const category = fileName ? getFileTypeCategory(fileName) : 'text';
+
+  // Revoke previous blob URL on cleanup or filePath change
+  const revokeBlob = () => {
+    if (blobUrlRef.current) {
+      console.log('[preview] revoking blob URL');
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (!filePath) return;
@@ -103,9 +113,10 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
     setError('');
     setContent('');
     setRawUrl('');
-    setImageSize(null);
+    revokeBlob();
 
     const cat = getFileTypeCategory(filePath);
+    console.log(`[preview] loading: file=${filePath} cat=${cat}`);
 
     if (cat === 'text' || cat === 'markdown') {
       api.files.content(projectId, filePath)
@@ -114,20 +125,38 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
             setRawUrl(marked.parse(data.content, { breaks: true, gfm: true }));
           }
           setContent(data.content);
+          console.log(`[preview] ${cat} loaded: lines=${data.content.split('\n').length} chars=${data.content.length}`);
         })
-        .catch(err => setError(err.message))
+        .catch(err => {
+          console.error(`[preview] ${cat} failed:`, err.message);
+          setError(err.message);
+        })
         .finally(() => setLoading(false));
     } else if (cat === 'image' || cat === 'pdf') {
-      const url = api.files.rawUrl(projectId, filePath);
-      setRawUrl(url);
-      setLoading(false);
+      api.files.rawBlob(projectId, filePath)
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          blobUrlRef.current = url;
+          setRawUrl(url);
+          console.log(`[preview] ${cat} blob ready: url=${url.substring(0, 50)}...`);
+        })
+        .catch(err => {
+          console.error(`[preview] ${cat} blob failed:`, err.message);
+          setError(err.message);
+        })
+        .finally(() => setLoading(false));
     } else if (cat === 'office') {
-      const url = api.files.rawUrl(projectId, filePath);
-      setRawUrl(url);
+      // Try Office Online Viewer via public raw URL (requires ngrok paid or visited once)
+      const publicUrl = api.files.rawUrl(projectId, filePath);
+      setRawUrl(publicUrl);
+      console.log(`[preview] office publicUrl: ${publicUrl.substring(0, 80)}...`);
       setLoading(false);
     } else {
+      console.log(`[preview] ${cat}: no preview, showing download`);
       setLoading(false);
     }
+
+    return () => revokeBlob();
   }, [projectId, filePath]);
 
   const copyContent = () => {
@@ -166,7 +195,7 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
               {viewMode === 'rendered' ? <FileCode size={14} /> : <Eye size={14} />}
             </button>
           )}
-          {(category === 'image' || category === 'pdf' || category === 'office') && (
+          {(category === 'image' || category === 'pdf') && (
             <button
               onClick={() => setFullscreen(f => !f)}
               className="p-1.5 text-[#858585] hover:text-white rounded hover:bg-[#3c3c3c] transition-colors"
@@ -175,7 +204,7 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
               {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
           )}
-          {(category === 'pdf' || category === 'office') && (
+          {(category === 'pdf') && (
             <button
               onClick={() => window.open(rawUrl, '_blank')}
               className="p-1.5 text-[#858585] hover:text-white rounded hover:bg-[#3c3c3c] transition-colors"
@@ -315,26 +344,29 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
           </div>
         )}
 
-        {!loading && category === 'office' && rawUrl && (
-          <iframe
-            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(rawUrl)}`}
-            className="w-full h-full border-0"
-            title={fileName}
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          />
-        )}
-
-        {!loading && category === 'office' && !rawUrl && (
+        {!loading && category === 'office' && (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-[#555] p-8">
             <FileX size={48} className="text-[#3c3c3c]" />
-            <p className="text-[#cccccc] text-sm">{fileName}</p>
-            <button
-              onClick={() => onDownload(filePath, fileName)}
-              className="flex items-center gap-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white px-4 py-2 rounded text-sm transition-colors"
-            >
-              <Download size={15} />
-              下載檔案
-            </button>
+            <div className="text-center">
+              <p className="text-[#cccccc] text-sm mb-1">{fileName}</p>
+              <p className="text-[#555] text-xs">{HumanFileType(fileName)} — 無法直接預覽</p>
+              <p className="text-[#424242] text-xs mt-1">Office 線上檢視器需 ngrok 付費版才能運作</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => onDownload(filePath, fileName)}
+                className="flex items-center gap-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white px-4 py-2 rounded text-sm transition-colors"
+              >
+                <Download size={15} />
+                下載檔案
+              </button>
+              <button
+                onClick={onClose}
+                className="flex items-center gap-1.5 bg-[#2d2d2d] hover:bg-[#3c3c3c] text-[#cccccc] px-4 py-2 rounded text-sm transition-colors border border-[#3c3c3c]"
+              >
+                關閉
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -356,12 +388,6 @@ export default function FilePreview({ projectId, filePath, onClose, onDownload, 
       {!loading && category === 'pdf' && rawUrl && (
         <div className="flex items-center gap-4 px-4 py-1.5 bg-[#007acc] text-white text-xs flex-shrink-0">
           <span>PDF 預覽</span>
-          <span>{fileName}</span>
-        </div>
-      )}
-      {!loading && category === 'office' && rawUrl && (
-        <div className="flex items-center gap-4 px-4 py-1.5 bg-[#007acc] text-white text-xs flex-shrink-0">
-          <span>Office Online 預覽</span>
           <span>{fileName}</span>
         </div>
       )}
