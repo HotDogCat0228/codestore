@@ -13,7 +13,7 @@ import { isPreviewable } from './FilePreview';
 function getFileIcon(name) {
   const ext = name.split('.').pop()?.toLowerCase();
   // Code
-  const codeExts = ['js','jsx','ts','tsx','mjs','cjs','py','go','rs','java','cpp','c','h','cs','php','rb','swift','kt','scala','r','lua','dart','ex','exs','elm','hs','clj','erl','fs','fsx','groovy','jl','ml','nim','pl','rkt','sql','zig'];
+  const codeExts = ['js','jsx','ts','tsx','mjs','cjs','py','go','rs','java','jsp','cpp','c','h','cs','php','rb','swift','kt','scala','r','lua','dart','ex','exs','elm','hs','clj','erl','fs','fsx','groovy','jl','ml','nim','pl','rkt','sql','zig'];
   if (codeExts.includes(ext)) return <FileCode size={14} className="flex-shrink-0 text-[#9cdcfe]" />;
   // Text / config
   const textExts = ['md','mdx','txt','log','json','yaml','yml','toml','xml','csv','tsv','env','ini','conf','cfg','editorconfig','gitignore','gitattributes','sh','bash','zsh','ps1','bat','cmd','dockerfile','makefile','lock','graphql','gql','proto','prisma'];

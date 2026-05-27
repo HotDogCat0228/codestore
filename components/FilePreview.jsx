@@ -7,7 +7,7 @@ import { api } from '../lib/api';
 
 const TEXT_EXTENSIONS = new Set([
   'js','jsx','ts','tsx','mjs','cjs',
-  'py','go','rs','java','cpp','c','h','cs','php','rb','swift','kt','scala','r',
+  'py','go','rs','java','jsp','cpp','c','h','cs','php','rb','swift','kt','scala','r',
   'lua','dart','ex','exs','elm','hs','clj','erl','fs','fsx','groovy','jl','nim',
   'pl','rkt','sql','zig',
   'sh','bash','zsh','ps1','bat','cmd',
@@ -51,7 +51,7 @@ function getLanguageClass(filename) {
   const ext = filename.split('.').pop()?.toLowerCase();
   const map = {
     js: 'js', jsx: 'jsx', ts: 'ts', tsx: 'tsx', mjs: 'js',
-    py: 'python', go: 'go', rs: 'rust', java: 'java',
+    jsp: 'java', py: 'python', go: 'go', rs: 'rust', java: 'java',
     cpp: 'cpp', c: 'c', cs: 'csharp', php: 'php', rb: 'ruby',
     swift: 'swift', kt: 'kotlin',
     sh: 'bash', bash: 'bash', zsh: 'bash', ps1: 'powershell', bat: 'batch',
