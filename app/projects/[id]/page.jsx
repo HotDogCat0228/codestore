@@ -96,7 +96,10 @@ export default function ProjectPage() {
   };
 
   const uploadFileItems = async (fileItems) => {
-    if (!fileItems.length) return;
+    if (!fileItems.length) {
+      console.warn('[upload] uploadFileItems called with empty fileItems, skipping');
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();
@@ -128,19 +131,43 @@ export default function ProjectPage() {
     e.preventDefault();
     dragCounter.current = 0;
     setDragOver(false);
-    const items = e.dataTransfer.items;
-    if (!items) return;
-    // Must collect all entries synchronously before any await,
-    // because DataTransfer is invalidated after the event loop yields.
-    const entries = Array.from(items)
-      .filter(item => item.kind === 'file')
-      .map(item => item.webkitGetAsEntry())
-      .filter(Boolean);
-    const fileItems = [];
-    for (const entry of entries) {
-      fileItems.push(...await traverseEntry(entry));
+    try {
+      const items = e.dataTransfer.items;
+      if (!items) return;
+
+      // Try webkitGetAsEntry first (preserves folder structure)
+      const entries = Array.from(items)
+        .filter(item => item.kind === 'file')
+        .map(item => item.webkitGetAsEntry())
+        .filter(Boolean);
+
+      let fileItems = [];
+      if (entries.length > 0) {
+        for (const entry of entries) {
+          fileItems.push(...await traverseEntry(entry));
+        }
+      }
+
+      // Fallback: webkitGetAsEntry may return null for certain files (e.g. zip).
+      // Use standard FileList API — folder structure is lost but files work.
+      if (fileItems.length === 0 && e.dataTransfer.files.length > 0) {
+        console.log('[drop] webkitGetAsEntry returned no entries, falling back to FileList');
+        fileItems = Array.from(e.dataTransfer.files).map(f => ({
+          file: f,
+          path: f.name,
+        }));
+      }
+
+      if (fileItems.length === 0) {
+        showStatus('error', '無法讀取拖放的檔案，請改用下方「上傳檔案」按鈕');
+        return;
+      }
+
+      await uploadFileItems(fileItems);
+    } catch (err) {
+      console.error('[drop error]', err);
+      showStatus('error', '拖放失敗：' + err.message + ' — 請改用「上傳檔案」按鈕');
     }
-    await uploadFileItems(fileItems);
   };
 
   const handleFileInput = async (e) => {
