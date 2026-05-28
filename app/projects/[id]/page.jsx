@@ -121,6 +121,7 @@ export default function ProjectPage() {
       }
       await loadData();
     } catch (err) {
+      console.error('[upload] request failed:', err.message, err);
       showStatus('error', '上傳失敗：' + err.message);
     } finally {
       setUploading(false);
