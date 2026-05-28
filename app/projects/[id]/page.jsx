@@ -102,6 +102,14 @@ export default function ProjectPage() {
     }
     setUploading(true);
     try {
+      const totalSize = fileItems.reduce((sum, { file }) => sum + (file.size || 0), 0);
+      console.log(`[upload] uploading ${fileItems.length} file(s), ${(totalSize / 1024 / 1024).toFixed(1)} MB`);
+      if (totalSize > 100 * 1024 * 1024) {
+        showStatus('error', `總大小 ${(totalSize / 1024 / 1024).toFixed(0)} MB 超過上限 100 MB`);
+        setUploading(false);
+        return;
+      }
+
       const formData = new FormData();
       fileItems.forEach(({ file, path }) => {
         formData.append('files', file);
@@ -121,8 +129,12 @@ export default function ProjectPage() {
       }
       await loadData();
     } catch (err) {
-      console.error('[upload] request failed:', err.message, err);
-      showStatus('error', '上傳失敗：' + err.message);
+      console.error('[upload] request failed:', err.message, '| name:', err.name, '| cause:', err.cause, err);
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        showStatus('error', '上傳失敗：無法連線到伺服器。請確認 server 正在執行，且網址設定正確。若使用 ngrok，請先在瀏覽器中打開 ngrok 網址並點擊「Visit Site」');
+      } else {
+        showStatus('error', '上傳失敗：' + err.message);
+      }
     } finally {
       setUploading(false);
     }
@@ -166,8 +178,12 @@ export default function ProjectPage() {
 
       await uploadFileItems(fileItems);
     } catch (err) {
-      console.error('[drop error]', err);
-      showStatus('error', '拖放失敗：' + err.message + ' — 請改用「上傳檔案」按鈕');
+      console.error('[drop error]', err.message, '| name:', err.name, '| cause:', err.cause, err);
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        showStatus('error', '拖放失敗：無法連線到伺服器。請改用下方「上傳檔案」按鈕');
+      } else {
+        showStatus('error', '拖放失敗：' + err.message + ' — 請改用「上傳檔案」按鈕');
+      }
     }
   };
 
