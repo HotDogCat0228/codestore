@@ -8,24 +8,6 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 
-const STORAGE_KEY = 'codestore_saved_dirs';
-
-function loadSavedDirs() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveSavedDirs(dirs) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dirs));
-  } catch {}
-}
-
 export default function DeployPage() {
   const [targetPath, setTargetPath] = useState('');
   const [file, setFile] = useState(null);
@@ -36,25 +18,27 @@ export default function DeployPage() {
   const dragCounter = useRef(0);
   const fileInputRef = useRef(null);
 
-  // Saved directories
+  // Saved directories (stored on server, shared across all devices)
   const [savedDirs, setSavedDirs] = useState([]);
 
   useEffect(() => {
-    setSavedDirs(loadSavedDirs());
+    api.deployDirs.list()
+      .then(dirs => setSavedDirs(Array.isArray(dirs) ? dirs : []))
+      .catch(() => {});
   }, []);
 
-  const addSavedDir = () => {
+  const addSavedDir = async () => {
     const dir = targetPath.trim();
     if (!dir) return;
     const updated = [dir, ...savedDirs.filter(d => d !== dir)];
     setSavedDirs(updated);
-    saveSavedDirs(updated);
+    try { await api.deployDirs.save(updated); } catch {}
   };
 
-  const removeSavedDir = (dir) => {
+  const removeSavedDir = async (dir) => {
     const updated = savedDirs.filter(d => d !== dir);
     setSavedDirs(updated);
-    saveSavedDirs(updated);
+    try { await api.deployDirs.save(updated); } catch {}
   };
 
   const selectSavedDir = (dir) => {
