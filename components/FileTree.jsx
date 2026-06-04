@@ -116,7 +116,15 @@ function TreeNode({
           e.dataTransfer.setData('application/x-codestore-internal', node.path);
           // For files: set DownloadURL so Chrome allows dragging to desktop/Explorer
           if (!isDir) {
-            const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+            const apiUrl = (() => {
+              if (typeof window !== 'undefined') {
+                try {
+                  const stored = localStorage.getItem('codestore_api_url');
+                  if (stored) return stored.replace(/\/$/, '');
+                } catch {}
+              }
+              return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+            })();
             const apiKey = process.env.NEXT_PUBLIC_API_KEY || '';
             const url = `${apiUrl}/api/projects/${projectId}/download?path=${encodeURIComponent(node.path)}&_key=${encodeURIComponent(apiKey)}`;
             e.dataTransfer.setData('DownloadURL', `application/octet-stream:${node.name}:${url}`);

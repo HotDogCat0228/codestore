@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FolderOpen, Plus, Trash2, Code2, AlertTriangle, RefreshCw, Rocket } from 'lucide-react';
-import { api } from '../lib/api';
+import { FolderOpen, Plus, Trash2, Code2, AlertTriangle, RefreshCw, Rocket, Server, Check } from 'lucide-react';
+import { api, setBaseUrl, getConfiguredUrl } from '../lib/api';
 import CreateProjectModal from '../components/CreateProjectModal';
 
 function formatDate(iso) {
@@ -16,6 +16,22 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [serverError, setServerError] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [serverUrl, setServerUrl] = useState('');
+  const [urlSaved, setUrlSaved] = useState(false);
+
+  // Init server URL from localStorage
+  useEffect(() => {
+    setServerUrl(getConfiguredUrl());
+  }, []);
+
+  const handleSaveUrl = () => {
+    setBaseUrl(serverUrl);
+    setUrlSaved(true);
+    setTimeout(() => setUrlSaved(false), 2000);
+    // Reload projects with new URL
+    setServerError(false);
+    loadProjects();
+  };
 
   const loadProjects = async () => {
     setLoading(true);
@@ -81,6 +97,30 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Server URL config bar */}
+        <div className="flex items-center gap-2 mb-6 bg-[#252526] border border-[#3c3c3c] rounded-lg px-3 py-2">
+          <Server size={14} className="text-[#858585] flex-shrink-0" />
+          <input
+            type="text"
+            value={serverUrl}
+            onChange={e => { setServerUrl(e.target.value); setUrlSaved(false); }}
+            onKeyDown={e => { if (e.key === 'Enter') handleSaveUrl(); }}
+            placeholder="貼上 Cloudflare Tunnel 網址（例如 https://xxx.trycloudflare.com）"
+            className="flex-1 bg-[#1e1e1e] text-[#cccccc] text-xs px-2 py-1.5 rounded border border-[#3c3c3c] focus:outline-none focus:border-[#0e639c] placeholder:text-[#555]"
+          />
+          <button
+            onClick={handleSaveUrl}
+            className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded transition-colors flex-shrink-0 ${
+              urlSaved
+                ? 'bg-green-900/40 text-green-400 border border-green-700/50'
+                : 'bg-[#0e639c] hover:bg-[#1177bb] text-white'
+            }`}
+          >
+            {urlSaved ? <Check size={12} /> : null}
+            {urlSaved ? '已儲存' : '儲存'}
+          </button>
+        </div>
+
         {/* Server error */}
         {serverError && (
           <div className="flex items-start gap-3 bg-[#5a1d1d] border border-[#be1100] rounded p-4 mb-6 text-sm">
@@ -88,8 +128,8 @@ export default function HomePage() {
             <div>
               <p className="text-red-300 font-medium">無法連接後端伺服器</p>
               <p className="text-red-400/80 text-xs mt-1">
-                請確認 server 已啟動（執行 <code className="bg-black/30 px-1 rounded">start.bat</code>），
-                且 <code className="bg-black/30 px-1 rounded">NEXT_PUBLIC_API_URL</code> 設定正確。
+                請確認 server 已啟動（執行 <code className="bg-black/30 px-1 rounded">start-all.bat</code>），
+                並在上方輸入正確的 Cloudflare Tunnel 網址後點擊儲存。
               </p>
             </div>
           </div>
