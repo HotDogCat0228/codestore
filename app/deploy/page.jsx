@@ -1,12 +1,30 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Rocket, Upload, CloudUpload, CheckCircle, AlertCircle,
-  Loader2, X, FileArchive, FolderOpen,
+  Loader2, X, FileArchive, FolderOpen, Bookmark, BookmarkPlus, Trash2,
 } from 'lucide-react';
 import { api } from '../../lib/api';
+
+const STORAGE_KEY = 'codestore_saved_dirs';
+
+function loadSavedDirs() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSavedDirs(dirs) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dirs));
+  } catch {}
+}
 
 export default function DeployPage() {
   const [targetPath, setTargetPath] = useState('');
@@ -17,6 +35,31 @@ export default function DeployPage() {
   const [dragOver, setDragOver] = useState(false);
   const dragCounter = useRef(0);
   const fileInputRef = useRef(null);
+
+  // Saved directories
+  const [savedDirs, setSavedDirs] = useState([]);
+
+  useEffect(() => {
+    setSavedDirs(loadSavedDirs());
+  }, []);
+
+  const addSavedDir = () => {
+    const dir = targetPath.trim();
+    if (!dir) return;
+    const updated = [dir, ...savedDirs.filter(d => d !== dir)];
+    setSavedDirs(updated);
+    saveSavedDirs(updated);
+  };
+
+  const removeSavedDir = (dir) => {
+    const updated = savedDirs.filter(d => d !== dir);
+    setSavedDirs(updated);
+    saveSavedDirs(updated);
+  };
+
+  const selectSavedDir = (dir) => {
+    setTargetPath(dir);
+  };
 
   const showStatus = useCallback((type, message) => {
     setStatus({ type, message });
@@ -161,23 +204,75 @@ export default function DeployPage() {
         <div className="max-w-2xl mx-auto space-y-5">
           {/* Target directory input */}
           <div className="bg-[#252526] border border-[#3c3c3c] rounded-lg p-4">
-            <label className="text-sm text-[#cccccc] font-medium mb-2 block">
-              目標資料夾
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm text-[#cccccc] font-medium flex items-center gap-1.5">
+                <FolderOpen size={14} className="text-[#dcb67a]" />
+                目標資料夾
+              </label>
+              <button
+                onClick={addSavedDir}
+                disabled={!targetPath.trim()}
+                className="flex items-center gap-1 text-xs text-[#858585] hover:text-[#dcb67a] disabled:text-[#3c3c3c] disabled:cursor-not-allowed transition-colors px-2 py-0.5 rounded hover:bg-[#3c3c3c]"
+                title="儲存此目錄"
+              >
+                <BookmarkPlus size={12} />
+                儲存目錄
+              </button>
+            </div>
             <div className="flex items-center gap-2">
-              <FolderOpen size={16} className="text-[#dcb67a] flex-shrink-0" />
               <input
                 type="text"
                 value={targetPath}
                 onChange={e => setTargetPath(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && e.ctrlKey) addSavedDir();
+                }}
                 placeholder="例如：ELS/project-name 或相對路徑"
                 className="flex-1 bg-[#3c3c3c] border border-[#555] text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-[#0e639c] placeholder:text-[#555]"
                 disabled={deploying}
               />
             </div>
             <p className="text-[#555] text-xs mt-2">
-              輸入相對於 DEPLOY_BASE_PATH 的資料夾路徑，ZIP 內容將解壓縮到此目錄下。
+              輸入相對於 DEPLOY_BASE_PATH 的資料夾路徑，Ctrl+Enter 快速儲存。
             </p>
+
+            {/* Saved directories */}
+            {savedDirs.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-[#3c3c3c]">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Bookmark size={12} className="text-[#dcb67a]" />
+                  <span className="text-xs text-[#858585]">已儲存目錄</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {savedDirs.map((dir) => (
+                    <div
+                      key={dir}
+                      className={`group flex items-center gap-1 px-2.5 py-1.5 rounded text-xs transition-all cursor-pointer ${
+                        targetPath === dir
+                          ? 'bg-[#0e639c]/30 text-white border border-[#0e639c]'
+                          : 'bg-[#2d2d2d] text-[#cccccc] border border-[#3c3c3c] hover:border-[#555]'
+                      }`}
+                    >
+                      <button
+                        onClick={() => selectSavedDir(dir)}
+                        className="flex items-center gap-1 max-w-[220px] truncate"
+                        title={dir}
+                      >
+                        <FolderOpen size={11} className="text-[#dcb67a] flex-shrink-0" />
+                        <span className="truncate">{dir}</span>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeSavedDir(dir); }}
+                        className="text-[#555] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all ml-0.5"
+                        title="移除"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ZIP drop zone */}
