@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FolderOpen, Plus, Trash2, Code2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { FolderOpen, Plus, Trash2, Code2, AlertTriangle, RefreshCw, Rocket } from 'lucide-react';
 import { api } from '../lib/api';
 import CreateProjectModal from '../components/CreateProjectModal';
 
@@ -64,6 +64,13 @@ export default function HomePage() {
             >
               <RefreshCw size={15} />
             </button>
+            <Link
+              href="/deploy"
+              className="flex items-center gap-1.5 bg-[#2d2d2d] hover:bg-[#3c3c3c] text-[#cccccc] px-3 py-2 rounded text-sm transition-colors border border-[#3c3c3c] hover:border-[#555]"
+            >
+              <Rocket size={15} />
+              部署
+            </Link>
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 bg-[#0e639c] hover:bg-[#1177bb] text-white px-3 py-2 rounded text-sm transition-colors"
