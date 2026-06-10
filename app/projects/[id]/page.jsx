@@ -131,6 +131,22 @@ export default function ProjectPage() {
     } catch (err) {
       console.error('[upload] request failed:', err.message, '| name:', err.name, '| cause:', err.cause, err);
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        // Fallback: try raw binary upload for a single file (bypasses multipart)
+        if (fileItems.length === 1) {
+          const { file, path: filePath } = fileItems[0];
+          console.log('[upload] multipart failed, retrying with raw upload...');
+          try {
+            const result = await api.files.uploadRaw(id, file, filePath);
+            showStatus('success', '成功上傳 ' + result.uploaded.length + ' 個檔案（raw）');
+            await loadData();
+          } catch (rawErr) {
+            console.error('[upload] raw upload also failed:', rawErr.message);
+            showStatus('error', '上傳失敗：無法連線到伺服器。請確認 server 正在執行，且網址設定正確。若使用 ngrok，請先在瀏覽器中打開 ngrok 網址並點擊「Visit Site」');
+          } finally {
+            setUploading(false);
+          }
+          return;
+        }
         showStatus('error', '上傳失敗：無法連線到伺服器。請確認 server 正在執行，且網址設定正確。若使用 ngrok，請先在瀏覽器中打開 ngrok 網址並點擊「Visit Site」');
       } else {
         showStatus('error', '上傳失敗：' + err.message);
